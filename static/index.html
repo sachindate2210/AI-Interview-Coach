@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Interview Coach</title>
+<style>
+  :root { --bg:#0e1117; --card:#171b24; --line:#2a3040; --text:#e8eaf0; --dim:#9aa3b5; --accent:#22d3ee; --gold:#f5b942; --good:#34d399; --bad:#f87171; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.5 "Segoe UI",system-ui,sans-serif; }
+  .wrap { max-width:820px; margin:0 auto; padding:24px 16px 60px; }
+  h1 { margin:0 0 4px; font-size:28px; } .sub { color:var(--dim); margin:0 0 20px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px; margin-bottom:16px; }
+  label { display:block; font-weight:600; margin:14px 0 6px; } .hint { color:var(--dim); font-size:13px; font-weight:400; }
+  input[type=text] { width:100%; padding:10px 12px; border-radius:8px; border:1px solid var(--line); background:#0b0e14; color:var(--text); font-size:15px; }
+  input[type=range] { width:100%; }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; } .chip { padding:6px 12px; border:1px solid var(--line); border-radius:999px; cursor:pointer; font-size:14px; user-select:none; }
+  .chip.on { background:var(--accent); color:#001018; border-color:var(--accent); font-weight:600; }
+  .row { display:flex; gap:16px; flex-wrap:wrap; } .row > div { flex:1; min-width:200px; }
+  button { font:inherit; border:0; border-radius:10px; padding:12px 18px; cursor:pointer; font-weight:600; }
+  .primary { background:var(--accent); color:#001018; width:100%; margin-top:20px; font-size:17px; }
+  .ghost { background:transparent; color:var(--text); border:1px solid var(--line); }
+  .hidden { display:none !important; }
+  .stage { text-align:center; padding:28px 20px; }
+  .orb { width:120px; height:120px; border-radius:50%; margin:0 auto 14px; display:grid; place-items:center; font-size:52px; background:#1d2433; border:3px solid var(--line); transition:all .2s; }
+  .orb.speaking { border-color:var(--gold); box-shadow:0 0 0 0 rgba(245,185,66,.6); animation:pulse 1.4s infinite; }
+  .orb.listening { border-color:var(--good); box-shadow:0 0 calc(10px + var(--lvl,0) * 60px) rgba(52,211,153,.7); }
+  .orb.thinking { border-color:var(--accent); animation:spin 1.2s linear infinite; }
+  @keyframes pulse { 70% { box-shadow:0 0 0 18px rgba(245,185,66,0); } 100% { box-shadow:0 0 0 0 rgba(245,185,66,0); } }
+  @keyframes spin { 50% { border-color:#0b5f6e; } }
+  .status { font-size:18px; font-weight:600; } .status small { display:block; color:var(--dim); font-weight:400; font-size:14px; margin-top:4px; }
+  .progress { height:6px; background:var(--line); border-radius:6px; overflow:hidden; margin:16px 0 4px; } .progress i { display:block; height:100%; background:var(--accent); width:0; transition:width .4s; }
+  .controls { display:flex; gap:10px; justify-content:center; margin-top:16px; flex-wrap:wrap; }
+  .log { max-height:46vh; overflow:auto; } .msg { margin:10px 0; padding:10px 14px; border-radius:12px; max-width:88%; }
+  .msg.p { background:#1f2636; } .msg.c { background:#0f3a33; margin-left:auto; } .msg.c.miss { background:#2a2a2a; color:var(--dim); font-style:italic; } .msg b { display:block; font-size:12px; color:var(--dim); margin-bottom:2px; }
+  .big { font-size:54px; font-weight:800; color:var(--accent); } .scorecard { border-left:4px solid var(--line); }
+  .bar { display:flex; align-items:center; gap:10px; margin:6px 0; } .bar span { width:180px; font-size:14px; } .bar div { flex:1; height:10px; background:var(--line); border-radius:6px; overflow:hidden; } .bar div i { display:block; height:100%; }
+  details { border-top:1px solid var(--line); padding:10px 0; } summary { cursor:pointer; font-weight:600; } details p { margin:6px 0; color:#cfd5e2; }
+  .err { color:var(--bad); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🎤 AI Interview Coach</h1>
+  <p class="sub">A real-feeling voice interview with Priya. She asks, you speak, it moves on by itself. Scores at the end.</p>
+
+  <!-- Setup -->
+  <div id="setup" class="card">
+    <label>Your name</label><input id="name" type="text" value="Sunil">
+    <label>Topics <span class="hint">(none selected = all topics)</span></label><div id="topics" class="chips"></div>
+    <div class="row">
+      <div><label>Questions: <span id="nVal">8</span></label><input id="n" type="range" min="1" max="20" value="8"></div>
+      <div><label>Follow-ups per question: <span id="fVal">1</span></label><input id="f" type="range" min="0" max="2" value="1"></div>
+    </div>
+    <div class="row">
+      <div><label>Auto-submit after silence: <span id="sVal">3</span>s <span class="hint">(raise it if you pause to think)</span></label><input id="s" type="range" min="2" max="8" value="3"></div>
+      <div><label>&nbsp;</label><label style="font-weight:400"><input id="intro" type="checkbox" checked> Start with "Tell me about yourself"</label></div>
+    </div>
+    <p class="hint">🎧 Tip: use earphones. Allow microphone access when Chrome asks.</p>
+    <p id="setupErr" class="err"></p>
+    <button id="startBtn" class="primary">▶ Start interview</button>
+  </div>
+
+  <!-- Interview -->
+  <div id="live" class="hidden">
+    <div class="card stage">
+      <div id="orb" class="orb">👩‍💼</div>
+      <div id="status" class="status">Connecting…</div>
+      <div class="progress"><i id="prog"></i></div><div id="progText" class="hint"></div>
+      <div class="controls">
+        <button id="repeatBtn" class="ghost">🔁 Repeat question</button>
+        <button id="doneBtn" class="ghost">✅ I'm done <span class="hint">(Enter)</span></button>
+        <button id="skipBtn" class="ghost">⏭ Skip question</button>
+        <button id="endBtn" class="ghost">⏹ End interview</button>
+      </div>
+    </div>
+    <div class="card log" id="log"></div>
+  </div>
+
+  <!-- Report -->
+  <div id="report" class="hidden"></div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const S = { session:null, stream:null, ctx:null, analyser:null, rec:null, chunks:[], listening:false, finished:false, busy:false, player:new Audio() };
+const selected = new Set();
+
+for (const [r, v] of [["n","nVal"],["f","fVal"],["s","sVal"]]) $(r).oninput = () => $(v).textContent = $(r).value;
+
+fetch("/api/config").then(r => r.json()).then(c => {
+  if (!c.has_key) $("setupErr").textContent = "GROQ_API_KEY is missing in .env";
+  $("n").max = c.total;
+  for (const t of c.topics) {
+    const el = document.createElement("span"); el.className = "chip"; el.textContent = t;
+    el.onclick = () => { el.classList.toggle("on"); el.classList.contains("on") ? selected.add(t) : selected.delete(t); };
+    $("topics").appendChild(el);
+  }
+});
+
+function setStatus(mode, text, small="") {
+  $("orb").className = "orb " + mode;
+  $("status").innerHTML = text + (small ? `<small>${small}</small>` : "");
+}
+function addMsg(who, text) {
+  const d = document.createElement("div"); d.className = "msg " + (who === "p" ? "p" : "c");
+  d.innerHTML = `<b>${who === "p" ? "Priya" : "You"}</b>`; d.appendChild(document.createTextNode(text));
+  $("log").appendChild(d); $("log").scrollTop = $("log").scrollHeight;
+}
+function setProgress(p) {
+  if (!p) return; $("prog").style.width = (100 * p.current / p.total) + "%";
+  $("progText").textContent = `Question ${p.current} of ${p.total}`;
+}
+
+$("startBtn").onclick = async () => {
+  $("setupErr").textContent = "";
+  try {
+    S.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation:true, noiseSuppression:true, autoGainControl:true } });
+  } catch (e) { $("setupErr").textContent = "Microphone permission is needed. Please allow it and try again."; return; }
+  S.ctx = new AudioContext(); S.analyser = S.ctx.createAnalyser(); S.analyser.fftSize = 1024;
+  S.ctx.createMediaStreamSource(S.stream).connect(S.analyser);
+  S.player.play().catch(() => {});  // unlock autoplay inside the click
+  $("startBtn").disabled = true; $("startBtn").textContent = "Starting…";
+  try {
+    const res = await api("/api/start", { name:$("name").value, topics:[...selected], n:+$("n").value, followups:+$("f").value, intro:$("intro").checked });
+    $("setup").classList.add("hidden"); $("live").classList.remove("hidden");
+    S.session = res.session; handleReply(res);
+  } catch (e) { $("setupErr").textContent = e.message; $("startBtn").disabled = false; $("startBtn").textContent = "▶ Start interview"; }
+};
+
+async function api(url, body) {
+  const r = await fetch(url, { method:"POST", headers:{ "Content-Type":"application/json" }, body:JSON.stringify(body) });
+  if (!r.ok) throw new Error((await r.json()).detail || r.statusText);
+  return r.json();
+}
+
+function handleReply(res) {
+  S.busy = false; S.finished = res.finished; setProgress(res.progress);
+  addMsg("p", res.text);
+  setStatus("speaking", "Priya is speaking…");
+  const next = () => S.finished ? showReport() : startListening();
+  if (res.audio) {
+    S.player.src = "data:audio/mp3;base64," + res.audio;
+    S.player.onended = () => setTimeout(next, 250);
+    S.player.play().catch(() => setTimeout(next, 500));
+  } else setTimeout(next, 800);
+}
+
+function startListening() {
+  if (S.finished) return;
+  const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "";
+  S.rec = new MediaRecorder(S.stream, mime ? { mimeType:mime } : {});
+  S.chunks = []; S.rec.ondataavailable = e => e.data.size && S.chunks.push(e.data);
+  S.rec.onstop = sendAnswer; S.rec.start(250); S.listening = true;
+  setStatus("listening", "🎙 Listening… speak now", "Your answer is sent automatically when you stop talking.");
+
+  const buf = new Float32Array(S.analyser.fftSize), silenceMs = +$("s").value * 1000;
+  const t0 = performance.now(); let noise = 0, nSamples = 0, threshold = 0.02, spoke = false, loudSince = 0, quietSince = 0, voicedMs = 0, last = t0;
+  const tick = () => {
+    if (!S.listening) return;
+    S.analyser.getFloatTimeDomainData(buf);
+    let sum = 0; for (const v of buf) sum += v * v; const rms = Math.sqrt(sum / buf.length);
+    const now = performance.now(), elapsed = now - t0, dt = now - last; last = now;
+    $("orb").style.setProperty("--lvl", Math.min(1, rms * 12));
+    if (elapsed < 400) { noise += rms; nSamples++; threshold = Math.max(0.015, (noise / nSamples) * 2.5); }
+    else if (rms > threshold) { voicedMs += dt; if (!loudSince) loudSince = now; if (now - loudSince > 150) spoke = true; quietSince = 0; }
+    else {
+      loudSince = 0;
+      // Only auto-send after real speech (at least ~0.8s of voice), so coughs or clicks don't submit.
+      if (spoke && voicedMs > 800) { if (!quietSince) quietSince = now; if (now - quietSince > silenceMs) return stopListening(); }
+    }
+    if (!spoke && elapsed > 25000) { setStatus("listening", "🎙 Still listening…", "Say something, or press Skip."); }
+    if (elapsed > 180000) return stopListening();
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+
+function stopListening() {
+  if (!S.listening) return; S.listening = false;
+  setStatus("thinking", "Priya is thinking…");
+  if (S.rec && S.rec.state !== "inactive") S.rec.stop();
+}
+
+async function sendAnswer() {
+  if (S.busy) return; S.busy = true;
+  const blob = new Blob(S.chunks, { type: S.rec.mimeType || "audio/webm" });
+  const fd = new FormData(); fd.append("session", S.session); fd.append("audio", blob, "answer.webm");
+  try {
+    const r = await fetch("/api/answer", { method:"POST", body:fd });
+    if (!r.ok) throw new Error((await r.json()).detail || r.statusText);
+    const res = await r.json(); addMsg("c", res.transcript);
+    if (res.heard_nothing) $("log").lastChild.classList.add("miss");
+    handleReply(res);
+  } catch (e) { S.busy = false; setStatus("", "⚠️ " + e.message, "Retrying listening in 2s…"); setTimeout(startListening, 2000); }
+}
+
+$("doneBtn").onclick = () => stopListening();
+document.addEventListener("keydown", e => { if (e.key === "Enter" && S.listening) { e.preventDefault(); stopListening(); } });
+// Replay Priya's last line locally (no API call), then listen again.
+$("repeatBtn").onclick = () => {
+  if (!S.player.src || S.busy) return;
+  S.listening = false;
+  if (S.rec && S.rec.state !== "inactive") { S.rec.onstop = null; S.rec.stop(); }
+  setStatus("speaking", "Priya is repeating the question…");
+  S.player.currentTime = 0; S.player.onended = () => setTimeout(startListening, 250);
+  S.player.play().catch(() => startListening());
+};
+$("skipBtn").onclick = async () => {
+  if (S.busy) return; S.busy = true; S.listening = false;
+  if (S.rec && S.rec.state !== "inactive") { S.rec.onstop = null; S.rec.stop(); }
+  S.player.pause(); setStatus("thinking", "Moving on…");
+  const res = await api("/api/skip", { session:S.session }); addMsg("c", "(skipped)"); handleReply(res);
+};
+$("endBtn").onclick = async () => {
+  S.listening = false; S.finished = true; S.player.pause();
+  if (S.rec && S.rec.state !== "inactive") { S.rec.onstop = null; S.rec.stop(); }
+  await api("/api/end", { session:S.session }); showReport();
+};
+
+async function showReport() {
+  S.listening = false; setStatus("thinking", "Interview complete 🎉", "Evaluating your answers… this takes a few seconds per question.");
+  if (S.stream) S.stream.getTracks().forEach(t => t.stop());
+  const r = await (await fetch("/api/report?session=" + S.session)).json();
+  $("live").querySelector(".controls").classList.add("hidden");
+  const box = $("report"); box.classList.remove("hidden");
+  if (!r.results.length) { box.innerHTML = `<div class="card">No answers to score.</div>`; return; }
+  const byTopic = {}; for (const x of r.results) (byTopic[x.Topic] ||= []).push(x.Score);
+  const color = s => s >= 7 ? "var(--good)" : s >= 5 ? "var(--gold)" : "var(--bad)";
+  const esc = s => (s || "").replace(/[&<>]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;" }[c]));
+  box.innerHTML = `
+    <div class="card"><div class="hint">Overall score</div><div class="big">${r.overall} / 10</div><p>${esc(r.summary).replace(/\n/g,"<br>")}</p></div>
+    <div class="card"><h3 style="margin-top:0">Score by topic</h3>${Object.entries(byTopic).map(([t, a]) => { const avg = a.reduce((x, y) => x + y, 0) / a.length;
+      return `<div class="bar"><span>${esc(t)}</span><div><i style="width:${avg * 10}%;background:${color(avg)}"></i></div><b>${avg.toFixed(1)}</b></div>`; }).join("")}</div>
+    <div class="card"><h3 style="margin-top:0">Question by question</h3>${r.results.map(x => `
+      <details><summary><span style="color:${color(x.Score)}">${x.Score}/10</span> · ${esc(x.Question)}</summary>
+      <p><b>Verdict:</b> ${esc(x.Verdict)}</p><p><b>Good:</b> ${esc(x.Strengths)}</p><p><b>Missed:</b> ${esc(x.Missed)}</p><p><b>A stronger answer:</b> ${esc(x["Better answer"])}</p></details>`).join("")}</div>
+    <button class="primary" onclick="location.reload()">🔄 Start a new interview</button>`;
+  setStatus("", "Interview complete 🎉", r.saved_to ? "Scores saved to results/practice_history.xlsx" : "");
+  box.scrollIntoView({ behavior:"smooth" });
+}
+</script>
+</body>
+</html>
